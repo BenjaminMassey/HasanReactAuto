@@ -2,7 +2,7 @@ use enigo::*;
 use glob::glob;
 use raster::filter;
 use screenshots::Screen;
-use std::{fmt, io, thread, time};
+use std::{f32::consts::E, fmt, io, thread, time};
 
 const DEBUG_MESSAGES: bool = true;
 const CAPTURE_PATH: &str = "./capture.png";
@@ -93,7 +93,7 @@ fn main() {
                 yt_time, capturing, youtube,
             );
         }
-        sleep(2);
+        sleep(5);
     }
 }
 
@@ -146,18 +146,18 @@ fn area_to_text(screen: Screen, area: CaptureArea) -> String {
 }
 
 fn is_youtube(text: &str) -> bool {
-    let the_text = text.to_owned().to_lowercase();
-        the_text.contains("youtube") ||
-        the_text.contains("yautube") ||
-        the_text.contains("uoutube") ||
-        the_text.contains("uautube") ||
-        the_text.contains("yauyube") ||
-        the_text.contains("uouuube")
+    let the_text = screen_text_filter(&text.to_owned().to_lowercase());
+    the_text.contains("outube") ||
+        the_text.contains("autube") ||
+        the_text.contains("ouuube") ||
+        the_text.contains("ouiube") ||
+        the_text.contains("oulube")
 }
 
 fn start_capture(enigo: &mut Enigo) {
     enigo.key_down(Key::Control);
     enigo.key_down(Key::Alt);
+    sleep(1);
     enigo.key_click(Key::F6);
     enigo.key_up(Key::Control);
     enigo.key_up(Key::Alt);
@@ -166,17 +166,32 @@ fn start_capture(enigo: &mut Enigo) {
 fn end_capture(enigo: &mut Enigo, title: Option<String>) {
     enigo.key_down(Key::Control);
     enigo.key_down(Key::Alt);
+    sleep(1);
     enigo.key_click(Key::F7);
     enigo.key_up(Key::Control);
     enigo.key_up(Key::Alt);
-    sleep(3);
+    sleep(5);
     if title.is_some() {
         update_title(&title.unwrap());
     }
 }
 
+fn screen_text_filter(text: &str) -> String {
+    text
+        .to_owned()
+        .replace(" ", "")
+        .replace("|", "I")
+        .replace("‘", "")
+        .replace("`", "")
+        .replace(".comy", ".com/")
+        .replace("watchv=", "watch?v=")
+        .replace("becom", "be.com") // youtubecom => youtube.com
+        .replace("comwatch", "com/watch")
+    // TODO: more filtering conditions
+}
+
 fn try_get_title(yt_url: &str) -> Option<String> {
-    let noembed_url = "https://noembed.com/embed?url=https://".to_owned() + yt_url;
+    let noembed_url = "https://noembed.com/embed?url=https://".to_owned() + &screen_text_filter(yt_url);
     let result = reqwest::blocking::get(noembed_url);
     if result.is_err() {
         return None;
