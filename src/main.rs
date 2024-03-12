@@ -1,6 +1,7 @@
 use enigo::*;
 use raster::filter;
 use screenshots::Screen;
+use serde::Deserialize;
 use std::{fmt, io, thread, time};
 
 const DEBUG_MESSAGES: bool = true;
@@ -43,6 +44,7 @@ fn main() {
     caption_area.bottom_right = get_screen_point(&enigo);
     let screen = Screen::from_point(0, 0).unwrap();
     sleep(10);
+    let mut title: Option<String> = None;
     let mut captions: Vec<String> = vec![];
     let mut yt_time: Option<time::Instant> = None;
     let mut capturing = false;
@@ -57,18 +59,21 @@ fn main() {
             yt_time = Some(time::Instant::now());
         } else if youtube && !capturing && yt_time.is_some()
             && yt_time.unwrap().elapsed().as_secs() > 10u64 {
-            start_capture();
+            start_capture(&mut enigo);
             capturing = true;
             yt_time = None;
         } else if youtube && capturing {
             yt_time = None;
+            if let Some(t) = try_get_title(&url) {
+                title = Some(t);
+            }
         } else if !youtube && !capturing {
             yt_time = None;
         } else if !youtube && capturing && yt_time.is_none() {
             yt_time = Some(time::Instant::now());
         } else if !youtube && capturing && yt_time.is_some()
             && yt_time.unwrap().elapsed().as_secs() > 30u64 {
-            end_capture();
+            end_capture(&mut enigo);
             capturing = false;
             yt_time = None;
         } else {
@@ -77,10 +82,10 @@ fn main() {
             );
         }
         if DEBUG_MESSAGES {
-            println!("\n\nText:\n\tURL: {}\n\tCaption: {}",
-                url, caption,
+            println!("\n\nText:\n\tURL: {}\n\tCaption: {}\n\tTitle: {:?}",
+                url, caption, title,
             );
-            println!("State:\n\tTime: {:?}\n\tcapturing: {}\n\tyoutube: {}",
+            println!("State:\n\tTime: {:?}\n\tCapturing: {}\n\tYoutube: {}",
                 yt_time, capturing, youtube,
             );
         }
@@ -146,10 +151,36 @@ fn is_youtube(text: &str) -> bool {
         the_text.contains("uouuube")
 }
 
-fn start_capture() { // TODO
-    println!("=== START CAPTURE ===");
+fn start_capture(enigo: &mut Enigo) {
+    enigo.key_down(Key::Control);
+    enigo.key_down(Key::Alt);
+    enigo.key_click(Key::F6);
+    enigo.key_up(Key::Control);
+    enigo.key_up(Key::Alt);
 }
 
-fn end_capture() { // TODO
-    println!("=== END CAPTURE ===");
+fn end_capture(enigo: &mut Enigo) {
+    enigo.key_down(Key::Control);
+    enigo.key_down(Key::Alt);
+    enigo.key_click(Key::F7);
+    enigo.key_up(Key::Control);
+    enigo.key_up(Key::Alt);
+}
+
+fn try_get_title(yt_url: &str) -> Option<String> {
+    let noembed_url = "https://noembed.com/embed?url".to_owned() + yt_url;
+    let result = reqwest::blocking::get(noembed_url);
+    if result.is_err() {
+        return None;
+    }
+    let json = serde_json::from_str(&result.unwrap().text().unwrap());
+    if json.is_err() {
+        return None;
+    }
+    let value: serde_json::Value = json.unwrap();
+    let title = value.get("title");
+    if title.is_none() {
+        return None;
+    }
+    Some(title.unwrap().to_string())
 }
