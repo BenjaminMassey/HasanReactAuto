@@ -1,7 +1,6 @@
 use enigo::*;
 use raster::filter;
 use screenshots::Screen;
-use serde::Deserialize;
 use std::{fmt, io, thread, time};
 
 const DEBUG_MESSAGES: bool = true;
@@ -168,7 +167,7 @@ fn end_capture(enigo: &mut Enigo) {
 }
 
 fn try_get_title(yt_url: &str) -> Option<String> {
-    let noembed_url = "https://noembed.com/embed?url".to_owned() + yt_url;
+    let noembed_url = "https://noembed.com/embed?url=https://".to_owned() + yt_url;
     let result = reqwest::blocking::get(noembed_url);
     if result.is_err() {
         return None;
