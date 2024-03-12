@@ -611,6 +611,7 @@ name = "hasan_react_auto"
 version = "0.1.0"
 dependencies = [
  "enigo",
+ "glob 0.3.1",
  "leptess",
  "raster",
  "reqwest",

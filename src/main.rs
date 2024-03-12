@@ -1,10 +1,13 @@
 use enigo::*;
+use glob::glob;
 use raster::filter;
 use screenshots::Screen;
 use std::{fmt, io, thread, time};
 
 const DEBUG_MESSAGES: bool = true;
 const CAPTURE_PATH: &str = "./capture.png";
+const VIDEOS_PATH: &str = "C:/Users/benja/Videos/";
+const VIDEO_EXT: &str = ".mp4";
 
 #[derive(Clone, Copy)]
 struct CaptureArea {
@@ -72,9 +75,11 @@ fn main() {
             yt_time = Some(time::Instant::now());
         } else if !youtube && capturing && yt_time.is_some()
             && yt_time.unwrap().elapsed().as_secs() > 30u64 {
-            end_capture(&mut enigo);
+            end_capture(&mut enigo, title.clone());
             capturing = false;
             yt_time = None;
+            title = None;
+            captions.clear();
         } else {
             println!("Unknown scenario. T: {:?}, C: {}, Y: {}",
                 yt_time, capturing, youtube,
@@ -158,12 +163,16 @@ fn start_capture(enigo: &mut Enigo) {
     enigo.key_up(Key::Alt);
 }
 
-fn end_capture(enigo: &mut Enigo) {
+fn end_capture(enigo: &mut Enigo, title: Option<String>) {
     enigo.key_down(Key::Control);
     enigo.key_down(Key::Alt);
     enigo.key_click(Key::F7);
     enigo.key_up(Key::Control);
     enigo.key_up(Key::Alt);
+    sleep(3);
+    if title.is_some() {
+        update_title(&title.unwrap());
+    }
 }
 
 fn try_get_title(yt_url: &str) -> Option<String> {
@@ -182,4 +191,20 @@ fn try_get_title(yt_url: &str) -> Option<String> {
         return None;
     }
     Some(title.unwrap().to_string())
+}
+
+fn update_title(title: &str) {
+    let vid_paths = glob(&(VIDEOS_PATH.to_owned() + "*" + &VIDEO_EXT))
+        .unwrap()
+        .filter_map(std::result::Result::ok);
+    let mut vids = vid_paths
+        .map(|p| p.into_os_string().into_string().unwrap())
+        .collect::<Vec<String>>();
+    vids.sort_by(|a, b| a.to_string().to_lowercase().cmp(&b.to_lowercase()));
+    let possible_vid = vids.last();
+    if let Some(vid) = possible_vid {
+        std::fs::rename(
+            vid, &(VIDEOS_PATH.to_owned() + title + &VIDEO_EXT)
+        ).unwrap();
+    }
 }
