@@ -3,8 +3,10 @@ use raster::filter;
 use screenshots::Screen;
 use std::{fmt, io, thread, time};
 
+const DEBUG_MESSAGES: bool = true;
 const CAPTURE_PATH: &str = "./capture.png";
 
+#[derive(Clone, Copy)]
 struct CaptureArea {
     top_left: (i32, i32),
     bottom_right: (i32, i32),
@@ -39,9 +41,51 @@ fn main() {
     let mut caption_area = CaptureArea::new();
     caption_area.top_left = get_screen_point(&enigo);
     caption_area.bottom_right = get_screen_point(&enigo);
+    let screen = Screen::from_point(0, 0).unwrap();
     sleep(10);
-    println!("URL: {}", area_to_text(url_area));
-    println!("Caption: {}", area_to_text(caption_area));
+    let mut captions: Vec<String> = vec![];
+    let mut yt_time: Option<time::Instant> = None;
+    let mut capturing = false;
+    loop {
+        let caption = area_to_text(screen, caption_area);
+        if caption.len() > 0 {
+            captions.push(caption.clone());
+        }
+        let url = area_to_text(screen, url_area);
+        let youtube = is_youtube(&url);
+        if youtube && !capturing && yt_time.is_none() {
+            yt_time = Some(time::Instant::now());
+        } else if youtube && !capturing && yt_time.is_some()
+            && yt_time.unwrap().elapsed().as_secs() > 10u64 {
+            start_capture();
+            capturing = true;
+            yt_time = None;
+        } else if youtube && capturing {
+            yt_time = None;
+        } else if !youtube && !capturing {
+            yt_time = None;
+        } else if !youtube && capturing && yt_time.is_none() {
+            yt_time = Some(time::Instant::now());
+        } else if !youtube && capturing && yt_time.is_some()
+            && yt_time.unwrap().elapsed().as_secs() > 30u64 {
+            end_capture();
+            capturing = false;
+            yt_time = None;
+        } else {
+            println!("Unknown scenario. T: {:?}, C: {}, Y: {}",
+                yt_time, capturing, youtube,
+            );
+        }
+        if DEBUG_MESSAGES {
+            println!("\n\nText:\n\tURL: {}\n\tCaption: {}",
+                url, caption,
+            );
+            println!("State:\n\tTime: {:?}\n\tcapturing: {}\n\tyoutube: {}",
+                yt_time, capturing, youtube,
+            );
+        }
+        sleep(2);
+    }
 }
 
 fn sleep(seconds: usize) {
@@ -69,8 +113,7 @@ fn screenshot(screen: Screen, area: CaptureArea, path: &str) {
         .unwrap();
 }
 
-fn area_to_text(area: CaptureArea) -> String {
-    let screen = Screen::from_point(0, 0).unwrap();
+fn area_to_text(screen: Screen, area: CaptureArea) -> String {
     screenshot(
         screen,
         area,
@@ -91,4 +134,22 @@ fn area_to_text(area: CaptureArea) -> String {
         return "".to_owned();
     }
     text.unwrap()
+}
+
+fn is_youtube(text: &str) -> bool {
+    let the_text = text.to_owned().to_lowercase();
+        the_text.contains("youtube") ||
+        the_text.contains("yautube") ||
+        the_text.contains("uoutube") ||
+        the_text.contains("uautube") ||
+        the_text.contains("yauyube") ||
+        the_text.contains("uouuube")
+}
+
+fn start_capture() { // TODO
+    println!("=== START CAPTURE ===");
+}
+
+fn end_capture() { // TODO
+    println!("=== END CAPTURE ===");
 }
