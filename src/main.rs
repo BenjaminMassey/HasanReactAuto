@@ -1,13 +1,19 @@
+use chatgpt::prelude::*;
 use enigo::*;
 use glob::glob;
 use raster::filter;
 use screenshots::Screen;
-use std::{f32::consts::E, fmt, io, thread, time};
+use std::{fmt, io, thread, time};
+use tokio;
 
 const DEBUG_MESSAGES: bool = true;
 const CAPTURE_PATH: &str = "./capture.png";
 const VIDEOS_PATH: &str = "C:/Users/benja/Videos/";
 const VIDEO_EXT: &str = ".mp4";
+const START_REC_HELD: &[Key] = &[Key::Control, Key::Alt];
+const START_REC_CLICK: Key = Key::F6;
+const STOP_REC_HELD: &[Key] = &[Key::Control, Key::Alt];
+const STOP_REC_CLICK: Key = Key::F7;
 
 #[derive(Clone, Copy)]
 struct CaptureArea {
@@ -45,7 +51,7 @@ fn main() {
     caption_area.top_left = get_screen_point(&enigo);
     caption_area.bottom_right = get_screen_point(&enigo);
     let screen = Screen::from_point(0, 0).unwrap();
-    sleep(10);
+    sleep(10f32);
     let mut title: Option<String> = None;
     let mut captions: Vec<String> = vec![];
     let mut yt_time: Option<time::Instant> = None;
@@ -75,7 +81,7 @@ fn main() {
             yt_time = Some(time::Instant::now());
         } else if !youtube && capturing && yt_time.is_some()
             && yt_time.unwrap().elapsed().as_secs() > 30u64 {
-            end_capture(&mut enigo, title.clone());
+            end_capture(&mut enigo, title.clone(), captions.clone());
             capturing = false;
             yt_time = None;
             title = None;
@@ -93,13 +99,14 @@ fn main() {
                 yt_time, capturing, youtube,
             );
         }
-        sleep(5);
+        sleep(5f32);
     }
 }
 
-fn sleep(seconds: usize) {
-    let second = time::Duration::from_secs(1u64);
-    thread::sleep(second * (seconds as u32));
+fn sleep(seconds: f32) {
+    let time = (1000f32 * seconds) as u64;
+    let duration = time::Duration::from_millis(time);
+    thread::sleep(duration);
 }
 
 fn get_screen_point(enigo: &Enigo) -> (i32, i32) {
@@ -154,26 +161,27 @@ fn is_youtube(text: &str) -> bool {
         the_text.contains("oulube")
 }
 
-fn start_capture(enigo: &mut Enigo) {
-    enigo.key_down(Key::Control);
-    enigo.key_down(Key::Alt);
-    sleep(1);
-    enigo.key_click(Key::F6);
-    enigo.key_up(Key::Control);
-    enigo.key_up(Key::Alt);
+fn keyboard_command(enigo: &mut Enigo, held: &[Key], click: Key) {
+    for &key in held {
+        enigo.key_down(key);
+        sleep(0.1f32);
+    }
+    sleep(0.3f32);
+    enigo.key_click(click);
+    for &key in held {
+        enigo.key_up(key);
+        sleep(0.1f32);
+    }
 }
 
-fn end_capture(enigo: &mut Enigo, title: Option<String>) {
-    enigo.key_down(Key::Control);
-    enigo.key_down(Key::Alt);
-    sleep(1);
-    enigo.key_click(Key::F7);
-    enigo.key_up(Key::Control);
-    enigo.key_up(Key::Alt);
-    sleep(5);
-    if title.is_some() {
-        update_title(&title.unwrap());
-    }
+fn start_capture(enigo: &mut Enigo) {
+    keyboard_command(enigo, START_REC_HELD, START_REC_CLICK);
+}
+
+fn end_capture(enigo: &mut Enigo, title: Option<String>, captions: Vec<String>) {
+    keyboard_command(enigo, STOP_REC_HELD, STOP_REC_CLICK);
+    sleep(5f32);
+    update_title(title, captions);
 }
 
 fn screen_text_filter(text: &str) -> String {
@@ -208,7 +216,7 @@ fn try_get_title(yt_url: &str) -> Option<String> {
     Some(title.unwrap().to_string())
 }
 
-fn update_title(title: &str) {
+fn update_title(title: Option<String>, captions: Vec<String>) {
     let vid_paths = glob(&(VIDEOS_PATH.to_owned() + "*" + &VIDEO_EXT))
         .unwrap()
         .filter_map(std::result::Result::ok);
@@ -217,9 +225,53 @@ fn update_title(title: &str) {
         .collect::<Vec<String>>();
     vids.sort_by(|a, b| a.to_string().to_lowercase().cmp(&b.to_lowercase()));
     let possible_vid = vids.last();
-    if let Some(vid) = possible_vid {
-        std::fs::rename(
-            vid, &(VIDEOS_PATH.to_owned() + title + &VIDEO_EXT)
-        ).unwrap();
+    let the_title: Option<String> = {
+        if let Some(retrieved) = title {
+            Some(retrieved)
+        } else {
+            let openai_key = std::env::args().nth(1).unwrap();
+            let gpt_client = ChatGPT::new_with_config(
+                openai_key,
+                ModelConfigurationBuilder::default()
+                    .engine(ChatGPTEngine::Gpt4)
+                    .build()
+                    .unwrap(),
+            ).unwrap();
+            let runtime = tokio::runtime::Runtime::new().expect("Unable to create a runtime");
+            let possible_title: Result<String> = runtime.block_on(gpt_title(gpt_client, captions));
+            if let Ok(generated) = possible_title {
+                Some(generated)
+            } else {
+                None
+            }
+        }
+    };
+    if let Some(final_title) = the_title {
+        if let Some(vid) = possible_vid {
+            std::fs::rename(
+                vid, VIDEOS_PATH.to_owned() + &final_title + &VIDEO_EXT
+            ).unwrap();
+        }
     }
+}
+
+async fn gpt_title(client: ChatGPT, captions: Vec<String>) -> Result<String> {
+
+    let mut message = "I have a lot of text gathered from a video. The video
+                       is of a Twitch streamer reacting to a video. The text
+                       will include captions of both the streamer reacting
+                       and the video being watched itself. Based on the
+                       following text, what short and concise description
+                       would you give the video that is being reacted to?
+                       Here are the captions: ".to_owned();
+
+    let length = captions.len();
+    let range = std::cmp::min(50, length);
+    for i in 0..range {
+        message = message + &captions[(length / range) * i] + " ";
+    }
+
+    let response: chatgpt::types::CompletionResponse = client.send_message(message).await?;
+
+    Ok(response.message().content.to_owned())
 }
