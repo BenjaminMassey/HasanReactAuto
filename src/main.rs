@@ -16,6 +16,8 @@ const STOP_REC_CLICK: Key = Key::F7;
 const GPT_URL: &str = "127.0.0.1:4891";
 const GPT_MODEL: &str = "Nous Hermes 2 Mistral DPO";
 const GPT_ATTEMPTS: usize = 5;
+const YT_STARTUP_SECS: u64 = 15;
+const YT_FINISH_SECS: u64 = 120;
 
 #[derive(Clone, Copy)]
 struct CaptureArea {
@@ -52,6 +54,9 @@ fn main() {
     let mut caption_area = CaptureArea::new();
     caption_area.top_left = get_screen_point(&enigo);
     caption_area.bottom_right = get_screen_point(&enigo);
+    let mut title_area = CaptureArea::new();
+    title_area.top_left = get_screen_point(&enigo);
+    title_area.bottom_right = get_screen_point(&enigo);
     let screen = Screen::from_point(0, 0).unwrap();
     sleep(10f32);
     let mut title: Option<String> = None;
@@ -59,30 +64,36 @@ fn main() {
     let mut yt_time: Option<time::Instant> = None;
     let mut capturing = false;
     loop {
-        let caption = area_to_text(screen, caption_area);
-        if caption.len() > 0 {
-            captions.push(caption.clone());
-        }
         let url = area_to_text(screen, url_area);
         let youtube = is_youtube(&url);
         if youtube && !capturing && yt_time.is_none() {
             yt_time = Some(time::Instant::now());
         } else if youtube && !capturing && yt_time.is_some()
-            && yt_time.unwrap().elapsed().as_secs() > 10u64 {
+            && yt_time.unwrap().elapsed().as_secs() > YT_STARTUP_SECS {
             start_capture(&mut enigo);
             capturing = true;
             yt_time = None;
         } else if youtube && capturing {
             yt_time = None;
-            if let Some(t) = try_get_title(&url) {
-                title = Some(t);
+            let caption = area_to_text(screen, caption_area);
+            if caption.len() > 0 {
+                captions.push(caption.clone());
+            }
+            if title.is_none() {
+                let title_area_text = area_to_text(screen, title_area);
+                if title_area_text.len() > 5 && gpt_english_check(&title_area_text) {
+                    title = Some(title_area_text)
+                }
+                if let Some(t) = try_get_title(&url) {
+                    title = Some(t);
+                }
             }
         } else if !youtube && !capturing {
             yt_time = None;
         } else if !youtube && capturing && yt_time.is_none() {
             yt_time = Some(time::Instant::now());
         } else if !youtube && capturing && yt_time.is_some()
-            && yt_time.unwrap().elapsed().as_secs() > 30u64 {
+            && yt_time.unwrap().elapsed().as_secs() > YT_FINISH_SECS {
             end_capture(&mut enigo, title.clone(), captions.clone());
             capturing = false;
             yt_time = None;
@@ -94,11 +105,8 @@ fn main() {
             );
         }
         if DEBUG_MESSAGES {
-            println!("\n\nText:\n\tURL: {}\n\tCaption: {}\n\tTitle: {:?}",
-                url, caption, title,
-            );
-            println!("State:\n\tTime: {:?}\n\tCapturing: {}\n\tYoutube: {}",
-                yt_time, capturing, youtube,
+            println!("\n\nDEBUG:\n\tURL: {}\n\tTitle: {:?}\n\tTime: {:?}\n\tCapturing: {}\n\tYoutube: {}\n",
+                url, title, yt_time, capturing, youtube,
             );
         }
         sleep(5f32);
@@ -177,10 +185,12 @@ fn keyboard_command(enigo: &mut Enigo, held: &[Key], click: Key) {
 }
 
 fn start_capture(enigo: &mut Enigo) {
+    println!("\n\n=== START CAPTURE ===\n\n");
     keyboard_command(enigo, START_REC_HELD, START_REC_CLICK);
 }
 
 fn end_capture(enigo: &mut Enigo, title: Option<String>, captions: Vec<String>) {
+    println!("\n\n=== END CAPTURE ===\n\n");
     keyboard_command(enigo, STOP_REC_HELD, STOP_REC_CLICK);
     sleep(5f32);
     update_title(title, captions);
@@ -236,12 +246,24 @@ fn update_title(title: Option<String>, captions: Vec<String>) {
         .collect::<Vec<String>>();
     vids.sort_by(|a, b| a.to_string().to_lowercase().cmp(&b.to_lowercase()));
     let possible_vid = vids.last();
-    let the_title: Option<String> = {
+    let gathered_title: Option<String> = {
         if let Some(retrieved) = title {
-            Some("Hasan reacts to ".to_owned() + &retrieved)
-        } else {
+            if gpt_english_check(&retrieved) {
+                Some("Hasan reacts to ".to_owned() + &retrieved)
+            } else {
+                None
+            }
+        }
+        else {
+            None
+        }
+    };
+    let generated_title: Option<String> = {
+        if gathered_title.is_none() {
+            println!("Failed to get real title.");
             let mut result = None;
             for _ in 0..GPT_ATTEMPTS {
+                println!("Trying GPT...");
                 let answer = gpt_title(&captions);
                 if let Some(text) = answer {
                     if text.len() > 0 && text.len() < 50 {
@@ -251,19 +273,34 @@ fn update_title(title: Option<String>, captions: Vec<String>) {
                 }
             }
             result
+        } else {
+            None
         }
     };
-    if let Some(final_title) = the_title {
+    let final_title: Option<String> = {
+        if let Some(gt) = gathered_title {
+            Some(gt)
+        } else if let Some(gt) = generated_title {
+            Some(gt)
+        } else {
+            None
+        }
+    };
+    if let Some(the_title) = final_title {
         if let Some(source) = possible_vid {
             let destination = OUT_VIDEOS_PATH.to_owned()
-                + &path_clean(&final_title) + &VIDEO_EXT;
+                + &path_clean(&the_title) + &VIDEO_EXT;
             let rename = std::fs::rename(source, &destination);
+            println!("\n\n===============\n\n");
             if rename.is_err() {
                 println!("Rename failed. File: {source}");
             } else {
                 println!("Rename success. File: {destination}");
             }
+            println!("\n\n===============\n\n");
         }
+    } else {
+        println!("\n\n===============\n\nNo title was achieved.\n\n===============\n\n");
     }
 }
 
@@ -314,6 +351,21 @@ fn local_gpt_chat(message: &str) -> Option<String> {
         return None;
     }
     Some(content.unwrap().to_string())
+}
+
+fn gpt_english_check(text: &str) -> bool {
+    let prompt = "Is the following text parse-able English? Please only ".to_owned()
+        + "reply with the word 'yes' or 'no': " + text;
+    let result = local_gpt_chat(&prompt);
+    if result.is_none() {
+        return false;
+    }
+    let yes = result.clone().unwrap().to_lowercase().starts_with("yes");
+    let no = result.unwrap().to_lowercase().starts_with("no");
+    if yes || no {
+        return yes;
+    }
+    false
 }
 
 fn gpt_title(captions: &Vec<String>) -> Option<String> {
