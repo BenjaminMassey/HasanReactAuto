@@ -17,7 +17,7 @@ const GPT_URL: &str = "127.0.0.1:4891";
 const GPT_MODEL: &str = "Nous Hermes 2 Mistral DPO";
 const GPT_ATTEMPTS: usize = 5;
 const YT_STARTUP_SECS: u64 = 15;
-const YT_FINISH_SECS: u64 = 120;
+const YT_FINISH_SECS: u64 = 90;
 
 #[derive(Clone, Copy)]
 struct CaptureArea {
@@ -80,8 +80,10 @@ fn main() {
                 captions.push(caption.clone());
             }
             if title.is_none() {
-                let title_area_text = area_to_text(screen, title_area);
-                if title_area_text.len() > 5 && gpt_english_check(&title_area_text) {
+                let title_area_text = title_text_filter(&area_to_text(screen, title_area));
+                println!("title area text: {title_area_text}");
+                if title_area_text.len() > 5 && gpt_english_check(&title_area_text)
+                    && !title_text_blacklist(&title_area_text) {
                     title = Some(title_area_text)
                 }
                 if let Some(t) = try_get_title(&url) {
@@ -163,7 +165,7 @@ fn area_to_text(screen: Screen, area: CaptureArea) -> String {
 }
 
 fn is_youtube(text: &str) -> bool {
-    let the_text = screen_text_filter(&text.to_owned().to_lowercase());
+    let the_text = youtube_url_filter(&text.to_owned().to_lowercase());
     the_text.contains("outube") ||
         the_text.contains("autube") ||
         the_text.contains("ouuube") ||
@@ -196,7 +198,7 @@ fn end_capture(enigo: &mut Enigo, title: Option<String>, captions: Vec<String>) 
     update_title(title, captions);
 }
 
-fn screen_text_filter(text: &str) -> String {
+fn youtube_url_filter(text: &str) -> String {
     text
         .to_owned()
         .replace(" ", "")
@@ -210,8 +212,27 @@ fn screen_text_filter(text: &str) -> String {
     // TODO: more filtering conditions
 }
 
+fn title_text_blacklist(text: &str) -> bool {
+    text.contains("(%")
+        || text.contains("(¢")
+        || text.contains("(&")
+        || text.contains("Search Q")
+        || text.contains("Premium Search")
+    // Top bar of youtube, where it says "Premium" and has the search bar
+}
+
+fn title_text_filter(text: &str) -> String {
+    text
+        .to_owned()
+        .replace("|", "I")
+        .replace("‘", "'")
+        .replace("`", "'")
+        .replace("\n", "")
+    // TODO: more filtering conditions
+}
+
 fn try_get_title(yt_url: &str) -> Option<String> {
-    let noembed_url = "https://noembed.com/embed?url=https://".to_owned() + &screen_text_filter(yt_url);
+    let noembed_url = "https://noembed.com/embed?url=https://".to_owned() + &youtube_url_filter(yt_url);
     let result = reqwest::blocking::get(noembed_url);
     if result.is_err() {
         return None;
@@ -235,6 +256,20 @@ fn path_clean(path: &str) -> String {
         .replace("\\", "")
         .replace("/", "")
         .replace(".", "")
+}
+
+fn gpt_yes_no(text: &str) -> bool {
+    let filtered_text = text
+        .to_owned()
+        .to_lowercase()
+        .replace("\"", "");
+    let start_text = &filtered_text[..std::cmp::min(filtered_text.len(), 8)];
+    let yes = start_text.contains("yes");
+    let no = start_text.contains("no");
+    if yes || no {
+        return yes;
+    }
+    false
 }
 
 fn update_title(title: Option<String>, captions: Vec<String>) {
@@ -304,12 +339,12 @@ fn update_title(title: Option<String>, captions: Vec<String>) {
     }
 }
 
-fn local_gpt_body(message: &str) -> String {
+fn local_gpt_body(message: &str, tokens: usize) -> String {
     format!(
         r#"
         {{
             "model": "{GPT_MODEL}",
-            "max_tokens": 100,
+            "max_tokens": {tokens},
             "messages": [
                 {{
                     "role": "system",
@@ -325,10 +360,10 @@ fn local_gpt_body(message: &str) -> String {
     )
 }
 
-fn local_gpt_chat(message: &str) -> Option<String> {
+fn local_gpt_chat(message: &str, tokens: usize) -> Option<String> {
     let url = "http://".to_owned() + &GPT_URL + "/v1/chat/completions";
     let client = reqwest::blocking::Client::new();
-    let body = local_gpt_body(message);
+    let body = local_gpt_body(message, tokens);
     let result = client.post(url).body(body).send();
     if result.is_err() {
         return None;
@@ -354,18 +389,15 @@ fn local_gpt_chat(message: &str) -> Option<String> {
 }
 
 fn gpt_english_check(text: &str) -> bool {
-    let prompt = "Is the following text parse-able English? Please only ".to_owned()
-        + "reply with the word 'yes' or 'no': " + text;
-    let result = local_gpt_chat(&prompt);
-    if result.is_none() {
-        return false;
+    let prompt = "Is the following text primarily made up of English words?".to_owned()
+        + " Please only reply with the word 'yes' or 'no': " + text;
+    let result = local_gpt_chat(&prompt, 10);
+    println!("GPT English Check: {} => {:?}", text, result);
+    if let Some(answer) = result {
+        gpt_yes_no(&answer)
+    } else {
+        false
     }
-    let yes = result.clone().unwrap().to_lowercase().starts_with("yes");
-    let no = result.unwrap().to_lowercase().starts_with("no");
-    if yes || no {
-        return yes;
-    }
-    false
 }
 
 fn gpt_title(captions: &Vec<String>) -> Option<String> {
@@ -389,5 +421,5 @@ fn gpt_title(captions: &Vec<String>) -> Option<String> {
         by your video title guess."
     );
 
-    local_gpt_chat(&message)
+    local_gpt_chat(&message, 100)
 }
