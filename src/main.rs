@@ -37,6 +37,22 @@ impl CaptureArea {
             bottom_right: (0, 0),
         }
     }
+    fn from_percent(original: CaptureArea, x1: f32, y1: f32, x2: f32, y2: f32) -> Self {
+        let orig_size = (
+            (original.bottom_right.0 - original.top_left.0) as f32,
+            (original.bottom_right.1 - original.top_left.1) as f32,
+        );
+        CaptureArea{
+            top_left: (
+                (orig_size.0 * x1) as i32 + original.top_left.0,
+                (orig_size.1 * y1) as i32 + original.top_left.1,
+            ),
+            bottom_right: (
+                (orig_size.0 * x2) as i32 + original.top_left.0,
+                (orig_size.1 * y2) as i32 + original.top_left.1,
+            ),
+        }
+    }
 }
 impl fmt::Display for CaptureArea {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -54,15 +70,18 @@ impl fmt::Display for CaptureArea {
 fn main() {
     let yt_client = YTClient::from_secret_path(&YOUTUBE_OAUTH_JSON_FILE).unwrap();
     let mut enigo = Enigo::new();
-    let mut url_area = CaptureArea::new();
-    url_area.top_left = get_screen_point(&enigo);
-    url_area.bottom_right = get_screen_point(&enigo);
+    let mut full_area = CaptureArea::new();
+    println!("Point to the top left of the stream and press enter.");
+    full_area.top_left = get_screen_point(&enigo);
+    println!("Point to the bottom left of the stream and press enter.");
+    full_area.bottom_right = get_screen_point(&enigo);
+    let url_area = CaptureArea::from_percent(full_area, 0.0763f32, 0.0434f32, 0.4636f32, 0.0666f32);
+    let title_area = CaptureArea::from_percent(full_area, 0.0263f32, 0.1165f32, 0.5551f32, 0.1543f32);
     let mut caption_area = CaptureArea::new();
+    println!("Point to the top left of the captions text and press enter.");
     caption_area.top_left = get_screen_point(&enigo);
+    println!("Point to the bottom right of the captions text and press enter.");
     caption_area.bottom_right = get_screen_point(&enigo);
-    let mut title_area = CaptureArea::new();
-    title_area.top_left = get_screen_point(&enigo);
-    title_area.bottom_right = get_screen_point(&enigo);
     let screen = Screen::from_point(0, 0).unwrap();
     sleep(10f32);
     let mut title: Option<String> = None;
