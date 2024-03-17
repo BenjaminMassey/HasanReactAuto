@@ -280,10 +280,16 @@ fn try_get_title(yt_url: &str) -> Option<String> {
 fn path_clean(path: &str) -> String {
     path
         .to_owned()
-        .replace("\"", "")
-        .replace("\\", "")
-        .replace("/", "")
         .replace(".", "")
+        .replace("/", "")
+        .replace("\\", "")
+        .replace(":", "")
+        .replace("*", "")
+        .replace("?", "")
+        .replace("\"", "'")
+        .replace("<", "")
+        .replace(">", "")
+        .replace("|", "")
 }
 
 fn gpt_yes_no(text: &str) -> bool {
