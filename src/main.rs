@@ -3,9 +3,10 @@ use glob::glob;
 use raster::filter;
 use screenshots::Screen;
 use std::{fmt, io, thread, time};
+use youtube_rs::*;
 
 const DEBUG_MESSAGES: bool = true;
-const CAPTURE_PATH: &str = "./capture.png";
+const CAPTURE_PATH: &str = "./capture.png"; // for temp screenshots
 const IN_VIDEOS_PATH: &str = "C:\\Users\\benja\\Videos\\";
 const OUT_VIDEOS_PATH: &str = "C:\\Users\\benja\\Videos\\HRA\\";
 const VIDEO_EXT: &str = ".mp4";
@@ -15,9 +16,13 @@ const STOP_REC_HELD: &[Key] = &[Key::Control, Key::Alt];
 const STOP_REC_CLICK: Key = Key::F7;
 const GPT_URL: &str = "127.0.0.1:4891";
 const GPT_MODEL: &str = "Nous Hermes 2 Mistral DPO";
-const GPT_ATTEMPTS: usize = 5;
+const GPT_ATTEMPTS: usize = 5; // for final backup title generation
 const YT_STARTUP_SECS: u64 = 15;
 const YT_FINISH_SECS: u64 = 90;
+const YOUTUBE_UPLOAD: bool = true; // still will client, but won't actually upload
+const YOUTUBE_OAUTH_JSON_FILE: &str = "C:\\Users\\benja\\Documents\\youtube_oauth_hra.json";
+const YOUTUBE_VIDEO_DESCRIPTION: &str = "Watch Hasan at https://www.twitch.tv/hasanabi";
+const YOUTUBE_VIDEO_TAGS: &str = "hasan,reacts,reactions,hasanabi,piker,react,youtube,video";
 
 #[derive(Clone, Copy)]
 struct CaptureArea {
@@ -47,6 +52,7 @@ impl fmt::Display for CaptureArea {
 }
 
 fn main() {
+    let yt_client = YTClient::from_secret_path(&YOUTUBE_OAUTH_JSON_FILE).unwrap();
     let mut enigo = Enigo::new();
     let mut url_area = CaptureArea::new();
     url_area.top_left = get_screen_point(&enigo);
@@ -96,7 +102,7 @@ fn main() {
             yt_time = Some(time::Instant::now());
         } else if !youtube && capturing && yt_time.is_some()
             && yt_time.unwrap().elapsed().as_secs() > YT_FINISH_SECS {
-            end_capture(&mut enigo, title.clone(), captions.clone());
+            end_capture(&yt_client, &mut enigo, title.clone(), captions.clone());
             capturing = false;
             yt_time = None;
             title = None;
@@ -191,11 +197,14 @@ fn start_capture(enigo: &mut Enigo) {
     keyboard_command(enigo, START_REC_HELD, START_REC_CLICK);
 }
 
-fn end_capture(enigo: &mut Enigo, title: Option<String>, captions: Vec<String>) {
+fn end_capture(client: &YTClient, enigo: &mut Enigo, title: Option<String>, captions: Vec<String>) {
     println!("\n\n=== END CAPTURE ===\n\n");
     keyboard_command(enigo, STOP_REC_HELD, STOP_REC_CLICK);
     sleep(5f32);
-    update_title(title, captions);
+    let result = update_title(title, captions);
+    if let Some(file) = result {
+        upload_to_youtube(&client, file); // TODO: async
+    }
 }
 
 fn youtube_url_filter(text: &str) -> String {
@@ -272,7 +281,12 @@ fn gpt_yes_no(text: &str) -> bool {
     false
 }
 
-fn update_title(title: Option<String>, captions: Vec<String>) {
+struct FileResult {
+    path: String,
+    name: String,
+}
+
+fn update_title(title: Option<String>, captions: Vec<String>) -> Option<FileResult> {
     let vid_paths = glob(&(IN_VIDEOS_PATH.to_owned() + "*" + &VIDEO_EXT))
         .unwrap()
         .filter_map(std::result::Result::ok);
@@ -323,20 +337,21 @@ fn update_title(title: Option<String>, captions: Vec<String>) {
     };
     if let Some(the_title) = final_title {
         if let Some(source) = possible_vid {
+            // TODO: file rename kind of unneeded, since for youtube upload, and path + title separate...
             let destination = OUT_VIDEOS_PATH.to_owned()
                 + &path_clean(&the_title) + &VIDEO_EXT;
             let rename = std::fs::rename(source, &destination);
-            println!("\n\n===============\n\n");
             if rename.is_err() {
-                println!("Rename failed. File: {source}");
+                println!("\n\nRename failed. File: {source} => {destination}\n\n");
+                return Some(FileResult{path: source.to_owned(), name: the_title});
             } else {
-                println!("Rename success. File: {destination}");
+                println!("\n\nRename success. File: {destination}\n\n");
+                return Some(FileResult{path: destination, name: the_title});
             }
-            println!("\n\n===============\n\n");
         }
-    } else {
-        println!("\n\n===============\n\nNo title was achieved.\n\n===============\n\n");
     }
+    println!("\n\n===============\n\nNo title was achieved.\n\n===============\n\n");  
+    None
 }
 
 fn local_gpt_body(message: &str, tokens: usize) -> String {
@@ -422,4 +437,21 @@ fn gpt_title(captions: &Vec<String>) -> Option<String> {
     );
 
     local_gpt_chat(&message, 100)
+}
+
+fn upload_to_youtube(client: &youtube_rs::YTClient, file: FileResult) {
+    if !YOUTUBE_UPLOAD {
+        return;
+    }
+    let video_options = VideoData {
+        title: &file.name,
+        desc: &YOUTUBE_VIDEO_DESCRIPTION,
+        keywords: Some(&YOUTUBE_VIDEO_TAGS),
+        category:video::CategoryID::Entertainment as u32,
+        privacy_status: video::PrivacyStatus::Private, // TODO: public
+        file: &file.path,
+        for_kids:false,
+    };
+    let upload_options = client.create_upload_options(video_options).unwrap();
+    client.upload_request(upload_options).expect("Could not upload");
 }
