@@ -12,8 +12,8 @@ pub fn upload_to_youtube(client: &youtube_rs::YTClient, file: video::FileResult)
     }
     let video_options = VideoData {
         title: &file.name,
-        desc: &YOUTUBE_VIDEO_DESCRIPTION,
-        keywords: Some(&YOUTUBE_VIDEO_TAGS),
+        desc: YOUTUBE_VIDEO_DESCRIPTION,
+        keywords: Some(YOUTUBE_VIDEO_TAGS),
         category: youtube_rs::video::CategoryID::Entertainment as u32,
         privacy_status: youtube_rs::video::PrivacyStatus::Private, // TODO: public
         file: &file.path,

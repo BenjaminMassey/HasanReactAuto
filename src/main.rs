@@ -11,12 +11,12 @@ mod video;
 mod youtube;
 
 const DEBUG_MESSAGES: bool = true;
-const YT_STARTUP_SECS: u64 = 15;
+const YT_STARTUP_SECS: u64 = 60; // should match OBS replay buffer timing
 const YT_FINISH_SECS: u64 = 90;
 const YOUTUBE_OAUTH_JSON_FILE: &str = "C:\\Users\\benja\\Documents\\youtube_oauth_hra.json";
 
 fn main() {
-    let yt_client = YTClient::from_secret_path(&YOUTUBE_OAUTH_JSON_FILE).unwrap();
+    let yt_client = YTClient::from_secret_path(YOUTUBE_OAUTH_JSON_FILE).unwrap();
     let mut enigo = Enigo::new();
     let mut full_area = screen::CaptureArea::new();
     println!("Point to the top left of the stream and press enter.");
@@ -49,7 +49,7 @@ fn main() {
         } else if youtube && capturing {
             yt_time = None;
             let caption = screen::area_to_text(the_screen, caption_area);
-            if caption.len() > 0 {
+            if !caption.is_empty() {
                 captions.push(caption.clone());
             }
             if title.is_none() {

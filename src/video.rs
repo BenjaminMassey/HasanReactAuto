@@ -1,5 +1,4 @@
 use enigo::*;
-use glob::glob;
 use youtube_rs::YTClient;
 
 use crate::gpt;
@@ -7,11 +6,11 @@ use crate::text;
 use crate::tools;
 use crate::youtube;
 
-const IN_VIDEOS_PATH: &str = "C:\\Users\\benja\\Videos\\";
-const OUT_VIDEOS_PATH: &str = "C:\\Users\\benja\\Videos\\HRA\\";
+const IN_VIDEOS_PATH: &str = "D:\\OBS\\Recordings\\";
+const OUT_VIDEOS_PATH: &str = "D:\\Development\\HRA\\";
 const VIDEO_EXT: &str = ".mp4";
 const START_REC_HELD: &[Key] = &[Key::Control, Key::Alt];
-const START_REC_CLICK: Key = Key::F6;
+const START_REC_CLICK: Key = Key::F6; // SHOULD ALSO BE REPLAY BUFFER SAVE
 const STOP_REC_HELD: &[Key] = &[Key::Control, Key::Alt];
 const STOP_REC_CLICK: Key = Key::F7;
 const GPT_ATTEMPTS: usize = 5; // for final backup title generation
@@ -51,27 +50,62 @@ pub fn try_get_title(yt_url: &str) -> Option<String> {
     Some(title.unwrap().to_string())
 }
 
+struct GlobResult {
+    replay: Option<String>,
+    recording: Option<String>,
+}
+impl GlobResult {
+    fn new() -> Self {
+        Self { replay: None, recording: None, }
+    }
+}
+
 pub struct FileResult {
     pub path: String,
     pub name: String,
 }
 
+fn recent_video() -> GlobResult {
+    let glob_params = vec![
+        IN_VIDEOS_PATH.to_owned() + "[!{Replay}]*" + VIDEO_EXT,
+        IN_VIDEOS_PATH.to_owned() + "Replay*" + VIDEO_EXT,
+    ];
+    let mut result = GlobResult::new();
+    for (i, glob_param) in glob_params.iter().enumerate() {
+        let vid_paths = glob::glob(glob_param)
+            .unwrap()
+            .filter_map(std::result::Result::ok);
+        let mut vids = vid_paths
+            .map(|p| p.into_os_string().into_string().unwrap())
+            .collect::<Vec<String>>();
+        vids.sort_by(|a, b| a.to_string().to_lowercase().cmp(&b.to_lowercase()));
+        if i == 0 { // TODO: hate this
+            result.recording = vids.last().cloned();
+        } else {
+            result.replay = vids.last().cloned();
+        }
+    }
+    result
+}
+
+fn combine_glob_result(result: GlobResult) -> String {
+    let files = [&result.replay.unwrap(), &result.recording.unwrap()];
+    let out_file = OUT_VIDEOS_PATH.to_owned() + "output.mp4";
+    mp4_merge::join_files(
+        &files,
+        &&out_file,
+        |progress| {
+            println!("mp4 merging... {:.2}%", progress * 100.0);
+        }
+    ).unwrap();
+    out_file
+}
+
 pub fn update_title(title: Option<String>, captions: Vec<String>) -> Option<FileResult> {
-    let vid_paths = glob(&(IN_VIDEOS_PATH.to_owned() + "*" + &VIDEO_EXT))
-        .unwrap()
-        .filter_map(std::result::Result::ok);
-    let mut vids = vid_paths
-        .map(|p| p.into_os_string().into_string().unwrap())
-        .collect::<Vec<String>>();
-    vids.sort_by(|a, b| a.to_string().to_lowercase().cmp(&b.to_lowercase()));
-    let possible_vid = vids.last();
+    let source_file = combine_glob_result(recent_video());
     let gathered_title: Option<String> = {
         if let Some(retrieved) = title {
-            if gpt::gpt_english_check(&retrieved) {
-                Some("Hasan reacts to ".to_owned() + &retrieved)
-            } else {
-                None
-            }
+            Some("Hasan reacts to ".to_owned() + &retrieved)
         }
         else {
             None
@@ -85,7 +119,8 @@ pub fn update_title(title: Option<String>, captions: Vec<String>) -> Option<File
                 println!("Trying GPT...");
                 let answer = gpt::gpt_title(&captions);
                 if let Some(text) = answer {
-                    if text.len() > 0 && text.len() < 50 {
+                    println!("GPT title: {text}");
+                    if text.len() > 0 && text.len() < 100 {
                         result = Some(text.clone());
                         break;
                     }
@@ -106,18 +141,16 @@ pub fn update_title(title: Option<String>, captions: Vec<String>) -> Option<File
         }
     };
     if let Some(the_title) = final_title {
-        if let Some(source) = possible_vid {
-            // TODO: file rename kind of unneeded, since for youtube upload, and path + title separate...
-            let destination = OUT_VIDEOS_PATH.to_owned()
-                + &text::path_clean(&the_title) + &VIDEO_EXT;
-            let rename = std::fs::rename(source, &destination);
-            if rename.is_err() {
-                println!("\n\nRename failed. File: {source} => {destination}\n\n");
-                return Some(FileResult{path: source.to_owned(), name: the_title});
-            } else {
-                println!("\n\nRename success. File: {destination}\n\n");
-                return Some(FileResult{path: destination, name: the_title});
-            }
+        // TODO: file rename kind of unneeded, since for youtube upload, and path + title separate...
+        let destination = OUT_VIDEOS_PATH.to_owned()
+            + &text::path_clean(&the_title) + VIDEO_EXT;
+        let rename = std::fs::rename(&source_file, &destination);
+        if rename.is_err() {
+            println!("\n\nRename failed. File: {} => {}\n\n", &source_file, &destination);
+            return Some(FileResult{path: source_file, name: the_title});
+        } else {
+            println!("\n\nRename success. File: {destination}\n\n");
+            return Some(FileResult{path: destination, name: the_title});
         }
     }
     println!("\n\n===============\n\nNo title was achieved.\n\n===============\n\n");  
