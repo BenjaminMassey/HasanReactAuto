@@ -90,7 +90,13 @@ fn recent_video() -> GlobResult {
 
 fn combine_glob_result(result: GlobResult) -> String {
     let files = [&result.replay.unwrap(), &result.recording.unwrap()];
-    let out_file = OUT_VIDEOS_PATH.to_owned() + "output.mp4";
+    let out_file = {
+        if let Ok(time) = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+            OUT_VIDEOS_PATH.to_owned() + &time.as_secs().to_string() + "output.mp4"
+        } else {
+            OUT_VIDEOS_PATH.to_owned() + "output.mp4"
+        }
+    };
     mp4_merge::join_files(
         &files,
         &&out_file,
