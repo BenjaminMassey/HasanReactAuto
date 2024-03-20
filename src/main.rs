@@ -1,7 +1,6 @@
 use enigo::*;
 use screenshots::Screen;
 use std::time;
-use youtube_rs::YTClient;
 
 mod gpt;
 mod screen;
@@ -13,10 +12,8 @@ mod youtube;
 const DEBUG_MESSAGES: bool = true;
 const YT_STARTUP_SECS: u64 = 60; // should match OBS replay buffer timing
 const YT_FINISH_SECS: u64 = 90;
-const YOUTUBE_OAUTH_JSON_FILE: &str = "C:\\Users\\benja\\Documents\\youtube_oauth_hra.json";
 
 fn main() {
-    let yt_client = YTClient::from_secret_path(YOUTUBE_OAUTH_JSON_FILE).unwrap();
     let mut enigo = Enigo::new();
     let mut full_area = screen::CaptureArea::new();
     println!("Point to the top left of the stream and press enter.");
@@ -70,7 +67,7 @@ fn main() {
             yt_time = Some(time::Instant::now());
         } else if !youtube && capturing && yt_time.is_some()
             && yt_time.unwrap().elapsed().as_secs() > YT_FINISH_SECS {
-            video::end_capture(&yt_client, &mut enigo, title.clone(), captions.clone());
+            video::end_capture(&mut enigo, title.clone(), captions.clone());
             capturing = false;
             yt_time = None;
             title = None;

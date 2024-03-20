@@ -26,3 +26,8 @@ pub fn keyboard_command(enigo: &mut Enigo, held: &[Key], click: Key) {
         sleep(0.1f32);
     }
 }
+
+pub fn click_and_pause(enigo: &mut Enigo, key: Key) {
+    enigo.key_click(key);
+    sleep(0.25f32);
+}

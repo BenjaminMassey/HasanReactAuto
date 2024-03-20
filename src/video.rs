@@ -1,5 +1,4 @@
 use enigo::*;
-use youtube_rs::YTClient;
 
 use crate::gpt;
 use crate::text;
@@ -20,13 +19,13 @@ pub fn start_capture(enigo: &mut Enigo) {
     tools::keyboard_command(enigo, START_REC_HELD, START_REC_CLICK);
 }
 
-pub fn end_capture(client: &YTClient, enigo: &mut Enigo, title: Option<String>, captions: Vec<String>) {
+pub fn end_capture(enigo: &mut Enigo, title: Option<String>, captions: Vec<String>) {
     println!("\n\n=== END CAPTURE ===\n\n");
     tools::keyboard_command(enigo, STOP_REC_HELD, STOP_REC_CLICK);
     tools::sleep(5f32);
     let result = update_title(title, captions);
     if let Some(file) = result {
-        youtube::upload_to_youtube(&client, file); // TODO: async
+        youtube::upload_to_youtube(enigo, file); // TODO: async
     }
 }
 
