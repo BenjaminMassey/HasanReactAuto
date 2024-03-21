@@ -161,3 +161,22 @@ pub fn update_title(title: Option<String>, captions: Vec<String>) -> Option<File
     println!("\n\n===============\n\nNo title was achieved.\n\n===============\n\n");  
     None
 }
+
+pub fn mp4_duration(path: &str) -> u64 {
+    let attempt = std::fs::File::open(path);
+    if attempt.is_err() {
+        return 0;
+    }
+    let file = attempt.unwrap();
+    let meta = file.metadata();
+    if meta.is_err() {
+        return 0;
+    }
+    let size = meta.unwrap().len();
+    let reader = std::io::BufReader::new(file);
+    let mp4 = mp4::Mp4Reader::read_header(reader, size);
+    if mp4.is_err() {
+        return 0;
+    }
+    mp4.unwrap().duration().as_secs()
+}

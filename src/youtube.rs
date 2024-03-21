@@ -6,10 +6,11 @@ use crate::tools;
 const YOUTUBE_UPLOAD: bool = true; // still will client, but won't actually upload
 const YOUTUBE_PUBLIC: bool = false;
 const YOUTUBE_VIDEO_DESCRIPTION: &str = "Watch Hasan on Twitch at hasanabi";
+const SECONDS_LONG_THRESHOLD: u64 = 300;
 
 pub fn upload_to_youtube(enigo: &mut Enigo, file: video::FileResult) {
-    if !YOUTUBE_UPLOAD {
-        return;
+    if !YOUTUBE_UPLOAD || video::mp4_duration(&file.path) < SECONDS_LONG_THRESHOLD {
+        return; // note: duration check also fixes broken videos, which return 0
     }
     tools::keyboard_command(enigo, &[Key::Control], Key::T); // open a new tab
     enigo.key_sequence("youtube.com"); // enter url
