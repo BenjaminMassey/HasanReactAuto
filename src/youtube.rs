@@ -4,6 +4,7 @@ use crate::video;
 use crate::tools;
 
 const YOUTUBE_UPLOAD: bool = true; // still will client, but won't actually upload
+const YOUTUBE_PUBLIC: bool = false;
 const YOUTUBE_VIDEO_DESCRIPTION: &str = "Watch Hasan on Twitch at hasanabi";
 
 pub fn upload_to_youtube(enigo: &mut Enigo, file: video::FileResult) {
@@ -56,7 +57,7 @@ pub fn upload_to_youtube(enigo: &mut Enigo, file: video::FileResult) {
         tools::click_and_pause(enigo, Key::Tab); // select next
     }
     tools::click_and_pause(enigo, Key::Return); // accept next
-    for _ in 0..13 {
+    for _ in 0..12 {
         tools::click_and_pause(enigo, Key::Tab); // select next
     }
     tools::click_and_pause(enigo, Key::Return); // accept next
@@ -64,12 +65,16 @@ pub fn upload_to_youtube(enigo: &mut Enigo, file: video::FileResult) {
         tools::click_and_pause(enigo, Key::Tab); // select next
     }
     tools::click_and_pause(enigo, Key::Return); // accept next
-    for _ in 0..4 {
-        tools::keyboard_command(enigo, &[Key::Shift], Key::Tab); // select visibility
+    for _ in 0..12 {
+        tools::click_and_pause(enigo, Key::Tab); // select visibility
     }
-    tools::click_and_pause(enigo, Key::Tab);
     for _ in 0..2 {
         tools::click_and_pause(enigo, Key::DownArrow); // select public
+    }
+    if !YOUTUBE_PUBLIC {
+        for _ in 0..2 {
+            tools::click_and_pause(enigo, Key::UpArrow); // select private
+        }
     }
     for _ in 0..9 {
         tools::click_and_pause(enigo, Key::Tab); // select publish
