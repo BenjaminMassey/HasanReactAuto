@@ -8,11 +8,11 @@ pub fn is_youtube(text: &str) -> bool {
 }
 
 pub fn title_text_blacklist(text: &str) -> bool {
-    text.contains("(%")
+    let t = text.to_lowercase();
+    t.contains("(%")
         || text.contains("(¢")
         || text.contains("(&")
-        || text.contains("Search Q")
-        || text.contains("Premium Search")
+        || text.contains("search")
     // Top bar of youtube, where it says "Premium" and has the search bar
 }
 
@@ -37,6 +37,7 @@ pub fn title_text_filter(text: &str) -> String {
         .replace("‘", "'")
         .replace("`", "'")
         .replace("\n", "")
+        .replace("\"", "'")
     // TODO: more filtering conditions
 }
 
