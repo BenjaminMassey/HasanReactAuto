@@ -2,6 +2,7 @@ use enigo::*;
 
 use crate::gpt;
 use crate::text;
+use crate::thumbnail;
 use crate::tools;
 use crate::youtube;
 
@@ -25,6 +26,7 @@ pub fn end_capture(enigo: &mut Enigo, title: Option<String>, captions: Vec<Strin
     tools::sleep(5f32);
     let result = update_title(title, captions);
     if let Some(file) = result {
+        thumbnail::generate(crate::SCREEN_CAP_TEMP, crate::THUMBNAIL_TEMP);
         youtube::upload_to_youtube(enigo, file); // TODO: async
     }
 }

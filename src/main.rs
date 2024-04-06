@@ -5,6 +5,7 @@ use std::time;
 mod gpt;
 mod screen;
 mod text;
+mod thumbnail;
 mod tools;
 mod video;
 mod youtube;
@@ -12,6 +13,8 @@ mod youtube;
 const DEBUG_MESSAGES: bool = true;
 const YT_STARTUP_SECS: u64 = 60; // should match OBS replay buffer timing
 const YT_FINISH_SECS: u64 = 90;
+pub const SCREEN_CAP_TEMP: &str = "D:\\Development\\HRA\\screenshot.png";
+pub const THUMBNAIL_TEMP: &str = "D:\\Development\\HRA\\thumbnail.png";
 
 fn main() {
     let mut enigo = Enigo::new();
@@ -41,6 +44,7 @@ fn main() {
         } else if youtube && !capturing && yt_time.is_some()
             && yt_time.unwrap().elapsed().as_secs() > YT_STARTUP_SECS {
             video::start_capture(&mut enigo);
+            screen::screenshot(the_screen, full_area, SCREEN_CAP_TEMP);
             capturing = true;
             yt_time = None;
         } else if youtube && capturing {
