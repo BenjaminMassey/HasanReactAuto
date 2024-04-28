@@ -24,7 +24,7 @@ fn main() {
     println!("Point to the bottom left of the stream and press enter.");
     full_area.bottom_right = tools::get_screen_point(&enigo);
     let url_area = screen::CaptureArea::from_percent(full_area, 0.0763f32, 0.0434f32, 0.4636f32, 0.0666f32);
-    let title_area = screen::CaptureArea::from_percent(full_area, 0.0263f32, 0.1165f32, 0.5551f32, 0.1543f32);
+    let title_area = screen::CaptureArea::from_percent(full_area, 0.006f32, 0.1165f32, 0.5551f32, 0.1543f32);
     let mut caption_area = screen::CaptureArea::new();
     println!("Point to the top left of the captions text and press enter.");
     caption_area.top_left = tools::get_screen_point(&enigo);
