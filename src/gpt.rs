@@ -99,3 +99,29 @@ pub fn gpt_title(captions: &Vec<String>) -> Option<String> {
 
     local_gpt_chat(&message, 100)
 }
+
+pub fn gpt_text(text_options: &str, captions: &Vec<String>) -> Option<String> {
+
+    let mut all_captions = String::new();
+
+    let length = captions.len();
+    let range = std::cmp::min(50, length);
+    for i in 0..range {
+        all_captions = all_captions + &captions[(length / range) * i] + " ";
+    }
+
+    let message = format!(
+        "I have a lot of text gathered from a video. The video
+        is of a Twitch streamer reacting to a video. The text
+        will include captions of both the streamer reacting
+        and the video being watched itself. Here are the captions:
+        {all_captions}. I also have a list of phrases to choose from,
+        which is as follows: {text_options}. Based on those captions,
+        and sourcing from those phrase options, which phrase would you say
+        fits the video based on the captions? Reply with only the text
+        of what phrase you think is best. No explaining it, no preceding it
+        or posting after it, only the text itself."
+    );
+
+    local_gpt_chat(&message, 10)
+}

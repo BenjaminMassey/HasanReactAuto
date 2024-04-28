@@ -4,21 +4,35 @@ use raster::{editor, BlendMode, PositionMode, ResizeMode};
 use std::io::Write;
 use text_to_png::TextRenderer;
 
+use crate::gpt;
+
 const FONT_TTF_BYTES: &[u8] = include_bytes!("D:\\Downloads\\Roboto\\Roboto-Bold.ttf");
 const HASAN_FACES_DIR: &str = "C:\\Users\\benja\\Pictures\\Hasan-Face\\Final\\";
 const TEXT_OPTIONS_FILE: &str = "D:\\Development\\HRA\\thumbnail_texts.txt";
 
-pub fn generate(background_file: &str, result_file: &str) {
+pub fn generate(background_file: &str, result_file: &str, captions: &Vec<String>) {
     let renderer =
         TextRenderer::try_new_with_ttf_font_data(FONT_TTF_BYTES).expect("Failed to load font");
 
     let text_options_raw = std::fs::read_to_string(TEXT_OPTIONS_FILE).expect("Failed to open text options file");
 
-    let mut text_options: Vec<String> = text_options_raw.split("\n").map(|s| s.to_owned()).collect();
-    text_options.shuffle(&mut thread_rng());
+    let text_options_str: String = text_options_raw.split("\n").map(|s| s.to_owned() + ", ").collect();
+    let mut text_caption = String::new();
+    let potential_answer = gpt::gpt_text(&text_options_str, &captions);
+    if let Some(answer) = potential_answer {
+        let filtered_answer = answer.replace('"', "").replace("\"", "").replace("\\\"", "");
+        if text_options_str.contains(&filtered_answer) {
+            text_caption = filtered_answer.to_uppercase();
+        }
+    }
+    if text_caption.len() == 0 {
+        let mut text_options_vec: Vec<String> = text_options_raw.split("\n").map(|s| s.to_owned()).collect();
+        text_options_vec.shuffle(&mut thread_rng());
+        text_caption = text_options_vec.first().unwrap().to_owned();
+    }
 
     let text_png = renderer
-        .render_text_to_png_data(text_options.first().unwrap(), 256, 0xFF0000)
+        .render_text_to_png_data(text_caption, 256, 0xFF0000)
         .expect("Failed to text_to_png");
 
     let mut text_file = std::fs::File::options()

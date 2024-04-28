@@ -24,9 +24,9 @@ pub fn end_capture(enigo: &mut Enigo, title: Option<String>, captions: Vec<Strin
     println!("\n\n=== END CAPTURE ===\n\n");
     tools::keyboard_command(enigo, STOP_REC_HELD, STOP_REC_CLICK);
     tools::sleep(5f32);
-    let result = update_title(title, captions);
+    let result = update_title(title, &captions);
     if let Some(file) = result {
-        thumbnail::generate(crate::SCREEN_CAP_TEMP, crate::THUMBNAIL_TEMP);
+        thumbnail::generate(crate::SCREEN_CAP_TEMP, crate::THUMBNAIL_TEMP, &captions);
         youtube::upload_to_youtube(enigo, file); // TODO: async
     }
 }
@@ -108,7 +108,7 @@ fn combine_glob_result(result: GlobResult) -> String {
     out_file
 }
 
-pub fn update_title(title: Option<String>, captions: Vec<String>) -> Option<FileResult> {
+pub fn update_title(title: Option<String>, captions: &Vec<String>) -> Option<FileResult> {
     let source_file = combine_glob_result(recent_video());
     let gathered_title: Option<String> = {
         if let Some(retrieved) = title {
