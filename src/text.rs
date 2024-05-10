@@ -42,6 +42,10 @@ pub fn title_text_filter(text: &str) -> String {
         .replace("\\\"", "")
         .replace("\"", "")
         .replace("\\", "")
+        .replace("_", "")
+        .replace("’", "")
+        .replace("\r\n", "")
+        .replace("=", "")
     // TODO: more filtering conditions
 }
 

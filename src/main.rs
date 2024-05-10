@@ -24,7 +24,8 @@ fn main() {
     println!("Point to the bottom left of the stream and press enter.");
     full_area.bottom_right = tools::get_screen_point(&enigo);
     let url_area = screen::CaptureArea::from_percent(full_area, 0.0763f32, 0.0434f32, 0.4636f32, 0.0666f32);
-    let title_area = screen::CaptureArea::from_percent(full_area, 0.006f32, 0.1165f32, 0.5551f32, 0.1543f32);
+    let title_area_1 = screen::CaptureArea::from_percent(full_area, 0.006f32, 0.1165f32, 0.5551f32, 0.1543f32);
+    let title_area_2 = screen::CaptureArea::from_percent(full_area, 0.006f32, 0.8650f32, 0.4900f32, 0.9000f32);
     let mut caption_area = screen::CaptureArea::new();
     println!("Point to the top left of the captions text and press enter.");
     caption_area.top_left = tools::get_screen_point(&enigo);
@@ -53,14 +54,18 @@ fn main() {
             if !caption.is_empty() {
                 captions.push(caption.clone());
             }
-            if title.is_none() {
+            for title_area in vec![title_area_1, title_area_2] {
+                if title.is_some() {
+                    break;
+                }
                 let title_area_text = text::title_text_filter(
                     &screen::area_to_text(the_screen, title_area));
-                println!("title area text: {title_area_text}");
                 if title_area_text.len() > 5 && gpt::gpt_english_check(&title_area_text)
                     && !text::title_text_blacklist(&title_area_text) {
                     title = Some(title_area_text)
                 }
+            }
+            if title.is_none() {
                 if let Some(t) = video::try_get_title(&url) {
                     title = Some(t);
                 }
