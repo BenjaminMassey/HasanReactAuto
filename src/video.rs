@@ -13,7 +13,6 @@ const START_REC_HELD: &[Key] = &[Key::Control, Key::Alt];
 const START_REC_CLICK: Key = Key::F6; // SHOULD ALSO BE REPLAY BUFFER SAVE
 const STOP_REC_HELD: &[Key] = &[Key::Control, Key::Alt];
 const STOP_REC_CLICK: Key = Key::F7;
-const GPT_ATTEMPTS: usize = 5; // for final backup title generation
 
 pub fn start_capture(enigo: &mut Enigo) {
     println!("\n\n=== START CAPTURE ===\n\n");
@@ -120,20 +119,8 @@ pub fn update_title(title: Option<String>, captions: &Vec<String>) -> Option<Fil
     };
     let generated_title: Option<String> = {
         if gathered_title.is_none() {
-            println!("Failed to get real title.");
-            let mut result = None;
-            for _ in 0..GPT_ATTEMPTS {
-                println!("Trying GPT...");
-                let answer = gpt::gpt_title(&captions);
-                if let Some(text) = answer {
-                    println!("GPT title: {text}");
-                    if text.len() > 0 && text.len() < 100 {
-                        result = Some(text.clone());
-                        break;
-                    }
-                }
-            }
-            result
+            println!("Failed to get real title: trying LLM.");
+            gpt::gpt_title(&captions)
         } else {
             None
         }

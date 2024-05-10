@@ -34,10 +34,14 @@ pub fn title_text_filter(text: &str) -> String {
     text
         .to_owned()
         .replace("|", "I")
-        .replace("‘", "'")
-        .replace("`", "'")
+        .replace("‘", "")
+        .replace("`", "")
         .replace("\n", "")
-        .replace("\"", "'")
+        .replace("\t", " ")
+        .replace("\r", "")
+        .replace("\\\"", "")
+        .replace("\"", "")
+        .replace("\\", "")
     // TODO: more filtering conditions
 }
 

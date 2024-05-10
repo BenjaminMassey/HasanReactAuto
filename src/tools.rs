@@ -31,3 +31,10 @@ pub fn click_and_pause(enigo: &mut Enigo, key: Key) {
     enigo.key_click(key);
     sleep(0.25f32);
 }
+
+pub fn first_n_chars(string: &str, n: usize) -> String {
+    if string.len() < n {
+        return string.to_owned();
+    }
+    string.to_owned()[..n].to_owned()
+}

@@ -1,5 +1,10 @@
 const GPT_URL: &str = "127.0.0.1:4891";
 const GPT_MODEL: &str = "Nous Hermes 2 Mistral DPO";
+const TITLE_ATTEMPTS: usize = 5;
+const ATTEMPT_TIMEOUT: u64 = 120;
+
+use crate::text;
+use crate::tools;
 
 pub fn local_gpt_body(message: &str, tokens: usize) -> String {
     format!(
@@ -26,7 +31,11 @@ pub fn local_gpt_chat(message: &str, tokens: usize) -> Option<String> {
     let url = "http://".to_owned() + &GPT_URL + "/v1/chat/completions";
     let client = reqwest::blocking::Client::new();
     let body = local_gpt_body(message, tokens);
-    let result = client.post(url).body(body).send();
+    let result = client
+        .post(url)
+        .body(body)
+        .timeout(std::time::Duration::from_secs(ATTEMPT_TIMEOUT))
+        .send();
     if result.is_err() {
         return None;
     }
@@ -35,19 +44,10 @@ pub fn local_gpt_chat(message: &str, tokens: usize) -> Option<String> {
         return None;
     }
     let value: serde_json::Value = json.unwrap();
-    let choices = value.get("choices");
-    if choices.is_none() {
-        return None;
-    }
-    let message = choices.unwrap()[0].get("message");
-    if message.is_none() {
-        return None;
-    }
-    let content = message.unwrap().get("content");
-    if content.is_none() {
-        return None;
-    }
-    Some(content.unwrap().to_string())
+    let choices = value.get("choices")?;
+    let message = choices[0].get("message")?;
+    let content = message.get("content")?;
+    Some(content.to_string())
 }
 
 pub fn gpt_yes_no(text: &str) -> bool {
@@ -55,7 +55,7 @@ pub fn gpt_yes_no(text: &str) -> bool {
         .to_owned()
         .to_lowercase()
         .replace("\"", "");
-    let start_text = &filtered_text[..std::cmp::min(filtered_text.len(), 8)];
+    let start_text = tools::first_n_chars(&filtered_text, 8);
     let yes = start_text.contains("yes");
     let no = start_text.contains("no");
     if yes || no {
@@ -97,7 +97,18 @@ pub fn gpt_title(captions: &Vec<String>) -> Option<String> {
         by your video title guess."
     );
 
-    local_gpt_chat(&message, 100)
+    for _ in 0..TITLE_ATTEMPTS {
+        let potential = local_gpt_chat(&message, 100);
+        if let Some(response) = potential {
+            let filtered = text::title_text_filter(&response);
+            if tools::first_n_chars(&filtered.to_lowercase(), 12) == "hasan reacts" &&
+                filtered.len() > 0 && filtered.len() < 100 {
+                return Some(filtered);
+            }
+        }
+    }
+
+    None
 }
 
 pub fn gpt_text(text_options: &str, captions: &Vec<String>) -> Option<String> {

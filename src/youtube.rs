@@ -5,7 +5,7 @@ use crate::tools;
 
 const YOUTUBE_UPLOAD: bool = true;
 const YOUTUBE_PUBLIC: bool = false;
-const YOUTUBE_VIDEO_DESCRIPTION: &str = "Watch Hasan on Twitch at hasanabi";
+const YOUTUBE_VIDEO_DESCRIPTION: &str = "Watch Hasan on Twitch at https://www.twitch.tv/hasanabi";
 const SECONDS_LONG_THRESHOLD: u64 = 300;
 
 pub fn upload_to_youtube(enigo: &mut Enigo, file: video::FileResult) {
