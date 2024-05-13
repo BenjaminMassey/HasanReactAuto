@@ -5,6 +5,7 @@ use std::io::Write;
 use text_to_png::TextRenderer;
 
 use crate::gpt;
+use crate::log;
 
 const FONT_TTF_BYTES: &[u8] = include_bytes!("D:\\Downloads\\Roboto\\Roboto-Bold.ttf");
 const HASAN_FACES_DIR: &str = "C:\\Users\\benja\\Pictures\\Hasan-Face\\Final\\";
@@ -23,6 +24,8 @@ pub fn generate(background_file: &str, result_file: &str, captions: &Vec<String>
         let filtered_answer = answer.replace('"', "").replace("\"", "").replace("\\\"", "");
         if text_options_str.contains(&filtered_answer) {
             text_caption = filtered_answer.to_uppercase();
+        } else {
+            log::error(&format!("Failed to retrieve GPT-chosen thumbnail text. Text: {}", &filtered_answer));
         }
     }
     if text_caption.len() == 0 {
@@ -32,7 +35,7 @@ pub fn generate(background_file: &str, result_file: &str, captions: &Vec<String>
     }
 
     let text_png = renderer
-        .render_text_to_png_data(text_caption, 256, 0xFF0000)
+        .render_text_to_png_data(&text_caption, 256, 0xFF0000)
         .expect("Failed to text_to_png");
 
     let mut text_file = std::fs::File::options()
@@ -83,4 +86,6 @@ pub fn generate(background_file: &str, result_file: &str, captions: &Vec<String>
     .unwrap();
 
     raster::save(&thumbnail, result_file).unwrap();
+
+    log::info(&format!("Generated thumbnail with text \"{}\" and face \"{}\"", &text_caption, hasan_face));
 }

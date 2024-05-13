@@ -1,5 +1,6 @@
 use enigo::*;
 
+use crate::log;
 use crate::video;
 use crate::tools;
 
@@ -9,9 +10,19 @@ const YOUTUBE_VIDEO_DESCRIPTION: &str = "Watch Hasan on Twitch at https://www.tw
 const SECONDS_LONG_THRESHOLD: u64 = 300;
 
 pub fn upload_to_youtube(enigo: &mut Enigo, file: video::FileResult) {
-    if !YOUTUBE_UPLOAD || video::mp4_duration(&file.path) < SECONDS_LONG_THRESHOLD {
+    let video_duration = video::mp4_duration(&file.path);
+    log::info(
+        &format!(
+            "Got video duration of {} (threshold is {}).",
+            video_duration,
+            SECONDS_LONG_THRESHOLD,
+        )
+    );
+    if !YOUTUBE_UPLOAD || video_duration < SECONDS_LONG_THRESHOLD {
+        log::warning("YouTube upload was aborted (setting or duration).");
         return; // note: duration check also fixes broken videos, which return 0
     }
+    log::info("Starting YouTube upload click-through.");
     tools::keyboard_command(enigo, &[Key::Control], Key::T); // open a new tab
     enigo.key_sequence("youtube.com"); // enter url
     tools::click_and_pause(enigo, Key::Return); // go to url
@@ -82,4 +93,5 @@ pub fn upload_to_youtube(enigo: &mut Enigo, file: video::FileResult) {
     tools::click_and_pause(enigo, Key::Return); // accept publish
     tools::sleep(1f32);
     tools::keyboard_command(enigo, &[Key::Control], Key::Num1); // back to hasan tab
+    log::info("Finished with YouTube upload click-through.");
 }

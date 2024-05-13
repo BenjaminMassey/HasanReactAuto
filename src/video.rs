@@ -1,6 +1,7 @@
 use enigo::*;
 
 use crate::gpt;
+use crate::log;
 use crate::text;
 use crate::thumbnail;
 use crate::tools;
@@ -27,6 +28,8 @@ pub fn end_capture(enigo: &mut Enigo, title: Option<String>, captions: Vec<Strin
     if let Some(file) = result {
         thumbnail::generate(crate::SCREEN_CAP_TEMP, crate::THUMBNAIL_TEMP, &captions);
         youtube::upload_to_youtube(enigo, file); // TODO: async
+    } else {
+        log::error("No proper video file result: failure to even start upload attempt.");
     }
 }
 

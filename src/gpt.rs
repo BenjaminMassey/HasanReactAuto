@@ -3,6 +3,7 @@ const GPT_MODEL: &str = "Nous Hermes 2 Mistral DPO";
 const TITLE_ATTEMPTS: usize = 5;
 const ATTEMPT_TIMEOUT: u64 = 120;
 
+use crate::log;
 use crate::text;
 use crate::tools;
 
@@ -37,10 +38,12 @@ pub fn local_gpt_chat(message: &str, tokens: usize) -> Option<String> {
         .timeout(std::time::Duration::from_secs(ATTEMPT_TIMEOUT))
         .send();
     if result.is_err() {
+        log::error(&format!("Failed LLM request: {:?}.", result));
         return None;
     }
     let json = serde_json::from_str(&result.unwrap().text().unwrap());
     if json.is_err() {
+        log::error(&format!("Failed to parse LLM response: {:?}.", json));
         return None;
     }
     let value: serde_json::Value = json.unwrap();
@@ -103,10 +106,13 @@ pub fn gpt_title(captions: &Vec<String>) -> Option<String> {
             let filtered = text::title_text_filter(&response);
             if tools::first_n_chars(&filtered.to_lowercase(), 12) == "hasan reacts" &&
                 filtered.len() > 0 && filtered.len() < 100 {
+                log::info(&format!("LLM gave the title: \"{}\".", &filtered));
                 return Some(filtered);
             }
         }
     }
+
+    log::error("Could not get acceptable title from GPT attempts.");
 
     None
 }
