@@ -2,6 +2,7 @@ const GPT_URL: &str = "127.0.0.1:4891";
 const GPT_MODEL: &str = "Nous Hermes 2 Mistral DPO";
 const TITLE_ATTEMPTS: usize = 5;
 const ATTEMPT_TIMEOUT: u64 = 120;
+const CAPTION_COUNT: usize = 20;
 
 use crate::log;
 use crate::text;
@@ -84,7 +85,7 @@ pub fn gpt_title(captions: &Vec<String>) -> Option<String> {
     let mut all_captions = String::new();
 
     let length = captions.len();
-    let range = std::cmp::min(50, length);
+    let range = std::cmp::min(CAPTION_COUNT, length);
     for i in 0..range {
         all_captions = all_captions + &captions[(length / range) * i] + " ";
     }
@@ -122,7 +123,7 @@ pub fn gpt_text(text_options: &str, captions: &Vec<String>) -> Option<String> {
     let mut all_captions = String::new();
 
     let length = captions.len();
-    let range = std::cmp::min(50, length);
+    let range = std::cmp::min(CAPTION_COUNT, length);
     for i in 0..range {
         all_captions = all_captions + &captions[(length / range) * i] + " ";
     }

@@ -14,6 +14,7 @@ const START_REC_HELD: &[Key] = &[Key::Control, Key::Alt];
 const START_REC_CLICK: Key = Key::F6; // SHOULD ALSO BE REPLAY BUFFER SAVE
 const STOP_REC_HELD: &[Key] = &[Key::Control, Key::Alt];
 const STOP_REC_CLICK: Key = Key::F7;
+const MERGE_ATTEMPTS: usize = 3;
 
 pub fn start_capture(enigo: &mut Enigo) {
     println!("\n\n=== START CAPTURE ===\n\n");
@@ -91,8 +92,17 @@ fn recent_video() -> GlobResult {
     result
 }
 
-fn combine_glob_result(result: GlobResult) -> String {
-    let files = [&result.replay.unwrap(), &result.recording.unwrap()];
+pub fn _test_recent() -> (String, String) {
+    let res = recent_video();
+    (res.replay.unwrap(), res.recording.unwrap())
+}
+
+fn combine_glob_result(result: &GlobResult) -> Option<String> {
+    if result.replay.is_none() || result.recording.is_none() {
+        log::error("Replay or recording was None when merge was attempted: aborted.");
+        return None;
+    }
+    let files = [&result.replay.as_ref().unwrap(), &result.recording.as_ref().unwrap()];
     let out_file = {
         if let Ok(time) = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
             OUT_VIDEOS_PATH.to_owned() + &time.as_secs().to_string() + "output.mp4"
@@ -100,18 +110,42 @@ fn combine_glob_result(result: GlobResult) -> String {
             OUT_VIDEOS_PATH.to_owned() + "output.mp4"
         }
     };
-    mp4_merge::join_files(
+    let merge = mp4_merge::join_files(
         &files,
-        &&out_file,
+        &&&out_file, // three &s???
         |progress| {
             println!("mp4 merging... {:.2}%", progress * 100.0);
         }
-    ).unwrap();
-    out_file
+    );
+    if merge.is_ok() {
+        return Some(out_file);
+    }
+    log::error(&format!("Merge failed: {:?}", merge));
+    None
+}
+
+fn try_combine_glob_result(result: GlobResult) -> Option<String> {
+    for _ in 0..MERGE_ATTEMPTS {
+        let gr = combine_glob_result(&result);
+        if gr.as_ref().is_some() && mp4_duration(&gr.as_ref().unwrap()) > 0 {
+            return gr;
+        }
+        log::warning("MP4 merge failed, trying again...");
+    }
+    log::error(&format!("MP4 merge failed {} times: aborting.", MERGE_ATTEMPTS));
+    None
+}
+
+pub fn _test_combine(file_1: &str, file_2: &str) -> Option<String> {
+    let gr = GlobResult {
+        replay: Some(file_1.to_owned()),
+        recording: Some(file_2.to_owned()),
+    };
+    try_combine_glob_result(gr)
 }
 
 pub fn update_title(title: Option<String>, captions: &Vec<String>) -> Option<FileResult> {
-    let source_file = combine_glob_result(recent_video());
+    let source_file = try_combine_glob_result(recent_video())?;
     let gathered_title: Option<String> = {
         if let Some(retrieved) = title {
             Some("Hasan reacts to ".to_owned() + &retrieved)

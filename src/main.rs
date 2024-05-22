@@ -12,8 +12,8 @@ mod video;
 mod youtube;
 
 const DEBUG_MESSAGES: bool = true;
-const YT_STARTUP_SECS: u64 = 60; // should match OBS replay buffer timing
-const YT_FINISH_SECS: u64 = 90;
+const YT_STARTUP_SECS: u64 = 90; // should match OBS replay buffer timing
+const YT_FINISH_SECS: u64 = 120;
 pub const SCREEN_CAP_TEMP: &str = "D:\\Development\\HRA\\screenshot.png";
 pub const THUMBNAIL_TEMP: &str = "D:\\Development\\HRA\\thumbnail.png";
 
