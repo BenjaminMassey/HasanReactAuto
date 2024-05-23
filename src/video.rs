@@ -1,6 +1,6 @@
 use enigo::*;
 
-use crate::gpt;
+use crate::llm;
 use crate::log;
 use crate::text;
 use crate::thumbnail;
@@ -157,7 +157,7 @@ pub fn update_title(title: Option<String>, captions: &Vec<String>) -> Option<Fil
     let generated_title: Option<String> = {
         if gathered_title.is_none() {
             println!("Failed to get real title: trying LLM.");
-            gpt::gpt_title(&captions)
+            llm::generate_title(&captions)
         } else {
             None
         }

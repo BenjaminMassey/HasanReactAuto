@@ -2,7 +2,7 @@ use enigo::*;
 use screenshots::Screen;
 use std::time;
 
-mod gpt;
+mod llm;
 mod log;
 mod screen;
 mod text;
@@ -18,6 +18,26 @@ pub const SCREEN_CAP_TEMP: &str = "D:\\Development\\HRA\\screenshot.png";
 pub const THUMBNAIL_TEMP: &str = "D:\\Development\\HRA\\thumbnail.png";
 
 fn main() {
+    println!("Choose Text: {} (poop)",
+        llm::choose_text(
+            "poop, clean, perfect",
+            &vec!("the worst".to_owned(), "garbage everywhere".to_owned(),
+                "feces-ridden".to_owned()))
+    );
+    println!("English Checks: {}, {} (false, true)",
+        llm::english_check("foijwijfwiejw fweifjow ioo8130 138sfj"),
+        llm::english_check("the fox is a big bad meanie")
+    );
+    println!("Generate Title: {:?} (Some(something anti-israel related))",
+        llm::generate_title(
+            &vec!(
+                "israel committing more genocide".to_owned(),
+                "the worst crime to palenstine since the nakbah".to_owned(),
+                "the us is complicit in israel's ethnic cleansing".to_owned(),
+            )
+        )
+    );
+    panic!();
     log::info("Starting application.");
     let mut enigo = Enigo::new();
     let mut full_area = screen::CaptureArea::new();
@@ -68,7 +88,7 @@ fn main() {
                     }
                     let title_area_text = text::title_text_filter(
                         &screen::area_to_text(the_screen, title_area));
-                    if title_area_text.len() > 5 && gpt::gpt_english_check(&title_area_text)
+                    if title_area_text.len() > 5 && llm::english_check(&title_area_text)
                         && !text::title_text_blacklist(&title_area_text) {
                         log::info(&format!("Got title from screen area: {}", &title_area_text));
                         title = Some(title_area_text)

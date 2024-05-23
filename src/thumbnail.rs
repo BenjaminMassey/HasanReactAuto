@@ -4,7 +4,7 @@ use raster::{editor, BlendMode, PositionMode, ResizeMode};
 use std::io::Write;
 use text_to_png::TextRenderer;
 
-use crate::gpt;
+use crate::llm;
 use crate::log;
 
 const FONT_TTF_BYTES: &[u8] = include_bytes!("D:\\Downloads\\Roboto\\Roboto-Bold.ttf");
@@ -19,14 +19,12 @@ pub fn generate(background_file: &str, result_file: &str, captions: &Vec<String>
 
     let text_options_str: String = text_options_raw.split("\n").map(|s| s.to_owned() + ", ").collect();
     let mut text_caption = String::new();
-    let potential_answer = gpt::gpt_text(&text_options_str, &captions);
-    if let Some(answer) = potential_answer {
-        let filtered_answer = answer.replace('"', "").replace("\"", "").replace("\\\"", "");
-        if text_options_str.contains(&filtered_answer) {
-            text_caption = filtered_answer.to_uppercase();
-        } else {
-            log::error(&format!("Failed to retrieve GPT-chosen thumbnail text. Text: {}", &filtered_answer));
-        }
+    let potential_answer = llm::choose_text(&text_options_str, &captions);
+    let filtered_answer = potential_answer.replace('"', "").replace("\"", "").replace("\\\"", "");
+    if text_options_str.contains(&filtered_answer) {
+        text_caption = filtered_answer.to_uppercase();
+    } else {
+        log::error(&format!("Failed to retrieve GPT-chosen thumbnail text. Text: {}", &filtered_answer));
     }
     if text_caption.len() == 0 {
         let mut text_options_vec: Vec<String> = text_options_raw.split("\n").map(|s| s.to_owned()).collect();
