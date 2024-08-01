@@ -6,6 +6,30 @@ This is a program designed to automate the process of posting YouTube videos of 
 
 It actively watches the stream, notices when he starts watching a video, starts recording, notices when he stops watching it, stops recording, decides on a title, generates a thumbnail, and uploads the video. Or, at least, all of that is the goal.
 
+## Process
+
+The app runs while one is also running hasanabi's stream in a browser. The user points the app to where on their screen the stream is being played, which the app will take screenshots of.
+
+![stream shot](./docs/stream_shot.png)
+
+From this screen shot, it can gather a decent amount of information: most importantly being the browser address bar that hasanabi so kindly keeps visible and in a stationary spot for us.
+
+![address bar](./docs/address_bar.png)
+
+This is then parsed into text with OCR, which helps the app gather a state as to what is going on.
+
+![app state](./docs/app_state.png)
+
+The app uses this to control OBS, generate a title, get enough info for youtube, etc. This includes calls to a locally running Large Language Model AI, for scenarios where dynamicness is needed. 
+
+When done, it generates a thumbnail using some pre-renders in addition to live screenshot.
+
+![thumbnail](./docs/thumbnail.jpg)
+
+And automatically uploads generated videos to YouTube as soon as they're ready.
+
+![youtube uploads](./docs/youtube_uploads.png)
+
 ## How It Works
 
 I feel that it is firstly most vital to go over what is happening, before going into prerequisites, setup, etc. This is because there are many moving parts here, so wrapping one's head around it is of utmost importance.
