@@ -10,15 +10,15 @@ It actively watches the stream, notices when he starts watching a video, starts 
 
 The app runs while one is also running hasanabi's stream in a browser. The user points the app to where on their screen the stream is being played, which the app will take screenshots of.
 
-![stream shot](./docs/stream_shot.png)
+![stream_shot](./docs/stream_shot.png)
 
 From this screen shot, it can gather a decent amount of information: most importantly being the browser address bar that hasanabi so kindly keeps visible and in a stationary spot for us.
 
-![address bar](./docs/address_bar.png)
+![address_bar](./docs/address_bar.png)
 
 This is then parsed into text with OCR, which helps the app gather a state as to what is going on.
 
-![app state](./docs/app_state.png)
+![app_state](./docs/app_state.png)
 
 The app uses this to control OBS, generate a title, get enough info for youtube, etc. This includes calls to a locally running Large Language Model AI, for scenarios where dynamicness is needed. 
 
@@ -28,7 +28,7 @@ When done, it generates a thumbnail using some pre-renders in addition to live s
 
 And automatically uploads generated videos to YouTube as soon as they're ready.
 
-![youtube uploads](./docs/youtube_uploads.png)
+![youtube_uploads](./docs/youtube_uploads.png)
 
 ## How It Works
 
