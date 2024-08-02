@@ -1,4 +1,6 @@
 /target
-*.png
+test*.png
+capture.png
+text.png
 /.vscode
 /logs/*
